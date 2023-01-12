@@ -1,18 +1,18 @@
-variable primary_db_cluster_arn {}
+variable "primary_db_cluster_arn" {}
 
 resource "aws_rds_cluster_parameter_group" "cluster_pg-s" {
   name   = "udacity-pg-s"
   family = "aurora5.6"
 
   parameter {
-    name  = "binlog_format"    
-    value = "MIXED"
+    name         = "binlog_format"
+    value        = "MIXED"
     apply_method = "pending-reboot"
   }
 
   parameter {
-    name = "log_bin_trust_function_creators"
-    value = 1
+    name         = "log_bin_trust_function_creators"
+    value        = 1
     apply_method = "pending-reboot"
   }
 }
@@ -23,20 +23,23 @@ resource "aws_db_subnet_group" "udacity_db_subnet_group" {
 }
 
 resource "aws_rds_cluster" "udacity_cluster-s" {
-  cluster_identifier       = "udacity-db-cluster-s"
-  availability_zones       = ["us-west-1b"]
+  cluster_identifier              = "udacity-db-cluster-s"
+  availability_zones              = ["us-west-1b", "us-west-1c"]
   db_cluster_parameter_group_name = aws_rds_cluster_parameter_group.cluster_pg-s.name
-  vpc_security_group_ids   = [aws_security_group.db_sg_2.id]
-  db_subnet_group_name     = aws_db_subnet_group.udacity_db_subnet_group.name
-  engine_mode              = "provisioned"
-  engine_version           = "5.6.mysql_aurora.1.19.1" 
-  skip_final_snapshot      = true
-  storage_encrypted        = false
-  depends_on = [aws_rds_cluster_parameter_group.cluster_pg-s]
+  vpc_security_group_ids          = [aws_security_group.db_sg_2.id]
+  db_subnet_group_name            = aws_db_subnet_group.udacity_db_subnet_group.name
+  engine_mode                     = "provisioned"
+  engine_version                  = "5.6.mysql_aurora.1.19.1"
+  skip_final_snapshot             = true
+  storage_encrypted               = false
+  backup_retention_period         = 5
+  replication_source_identifier   = var.primary_db_cluster_arn
+  source_region                   = "us-east-2"
+  depends_on                      = [aws_rds_cluster_parameter_group.cluster_pg-s]
 }
 
 resource "aws_rds_cluster_instance" "udacity_instance-s" {
-  count                = 1
+  count                = 2
   identifier           = "udacity-db-instance-${count.index}-s"
   cluster_identifier   = aws_rds_cluster.udacity_cluster-s.id
   instance_class       = "db.t2.small"
@@ -45,7 +48,7 @@ resource "aws_rds_cluster_instance" "udacity_instance-s" {
 
 resource "aws_security_group" "db_sg_2" {
   name   = "udacity-db-sg"
-  vpc_id =  var.vpc_id
+  vpc_id = var.vpc_id
 
   ingress {
     from_port   = 3306
